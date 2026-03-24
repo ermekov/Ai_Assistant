@@ -267,7 +267,20 @@
   .chat-name { font-weight: 700; font-size: 0.95rem; }
   .chat-status { font-size: 0.75rem; color: var(--green); }
 
-  .chat-messages { display: flex; flex-direction: column; gap: 0.75rem; }
+  .chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    /* Фиксированная область — сообщения скроллятся внутри, не растягивают карточку */
+    height: 280px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+    /* Скрываем скроллбар — выглядит как телефон */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .chat-messages::-webkit-scrollbar { display: none; }
 
   .msg {
     display: flex;
@@ -966,11 +979,10 @@
   }
 
   /* ───── CHAT DEMO ANIMATION ───── */
-  .msg:nth-child(1) { animation-delay: 0.3s; }
-  .msg:nth-child(2) { animation-delay: 0.8s; }
-  .msg:nth-child(3) { animation-delay: 1.4s; }
-  .msg:nth-child(4) { animation-delay: 2.0s; }
-  .msg:nth-child(5) { animation-delay: 2.6s; }
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 </style>
 </head>
 <body>
@@ -1027,30 +1039,9 @@
             <div class="chat-status">● онлайн</div>
           </div>
         </div>
-        <div class="chat-messages" id="chatMessages">
-          <div class="msg user">
-            <div class="msg-bubble">Привет! Хочу узнать о ваших услугах</div>
-            <div class="msg-time">12:01</div>
-          </div>
-          <div class="msg bot">
-            <div class="msg-bubble">Привет! 👋 Я AI-ассистент BotFlow. Расскажу о наших тарифах и помогу выбрать подходящее решение для вашего бизнеса.</div>
-            <div class="msg-time">12:01</div>
-          </div>
-          <div class="msg user">
-            <div class="msg-bubble">Сколько стоит базовый тариф?</div>
-            <div class="msg-time">12:02</div>
-          </div>
-          <div class="msg bot">
-            <div class="msg-bubble">Тариф START — от 50 000₸. Включает FAQ-бот и базовый Telegram. Хотите получить полный прайс? 📋</div>
-            <div class="msg-time">12:02</div>
-          </div>
-          <div class="msg user">
-            <div class="msg-bubble">Да, пришлите прайс!</div>
-            <div class="msg-time">12:03</div>
-          </div>
-        </div>
-        <div style="margin-top:0.75rem;">
-          <div class="typing-indicator" id="typingIndicator">
+        <div class="chat-messages" id="chatMessages"></div>
+        <div style="margin-top:0.75rem; flex-shrink:0;">
+          <div class="typing-indicator" id="typingIndicator" style="display:none;">
             <div class="typing-dot"></div>
             <div class="typing-dot"></div>
             <div class="typing-dot"></div>
@@ -1410,61 +1401,77 @@
 
   reveals.forEach(el => observer.observe(el));
 
-  // ── Animated chat
-  const newMessages = [
-    { type: 'bot', text: '📄 Отправляю прайс-лист! Хотите, чтобы я записал вас на консультацию?', time: '12:03' },
-    { type: 'user', text: 'Да, запишите меня!', time: '12:04' },
-    { type: 'bot', text: '✅ Отлично! Укажите ваш номер телефона — менеджер свяжется в ближайшее время.', time: '12:04' },
+  // ── Animated chat — плавный скролл как на телефоне
+  const allDialogue = [
+    { type: 'user', text: 'Привет! Хочу узнать о ваших услугах', time: '12:01' },
+    { type: 'bot',  text: 'Привет! 👋 Я AI-ассистент. Расскажу о тарифах и помогу выбрать решение для вашего бизнеса.', time: '12:01' },
+    { type: 'user', text: 'Сколько стоит первый бот?', time: '12:02' },
+    { type: 'bot',  text: 'Первый бот — 50 000₸. Включает AI-диалог, автоответы 24/7 и интеграцию с мессенджерами. 🤖', time: '12:02' },
+    { type: 'user', text: 'А если мне нужен второй бот?', time: '12:03' },
+    { type: 'bot',  text: 'Каждый следующий бот — 35 000₸. Свой сценарий и своя база знаний. 📋', time: '12:03' },
+    { type: 'user', text: 'Отлично! Как начать?', time: '12:04' },
+    { type: 'bot',  text: '✅ Просто напишите нам в Telegram @eeermekov — обсудим детали и запустим за 3 дня!', time: '12:04' },
   ];
 
-  let msgIndex = 0;
+  let chatIdx = 0;
 
-  function addMessage(msg) {
+  function smoothScrollChat(container) {
+    // Плавно прокручиваем вверх — как при получении нового сообщения на телефоне
+    container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+  }
+
+  function appendChatMsg(msg, container) {
+    const div = document.createElement('div');
+    div.className = `msg ${msg.type}`;
+    div.style.cssText = 'opacity:0; transform:translateY(12px); transition: opacity 0.35s ease, transform 0.35s ease;';
+    div.innerHTML = `<div class="msg-bubble">${msg.text}</div><div class="msg-time">${msg.time}</div>`;
+    container.appendChild(div);
+    // Trigger reflow then animate in
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      div.style.opacity = '1';
+      div.style.transform = 'translateY(0)';
+      smoothScrollChat(container);
+    }));
+  }
+
+  function runChatStep() {
     const typingEl = document.getElementById('typingIndicator');
     const container = document.getElementById('chatMessages');
 
-    // Show typing for bot messages
+    if (chatIdx >= allDialogue.length) {
+      // Пауза, потом плавно сбрасываем — убираем все сообщения с fade-out
+      setTimeout(() => {
+        const msgs = container.querySelectorAll('.msg');
+        msgs.forEach(m => { m.style.transition = 'opacity 0.4s ease'; m.style.opacity = '0'; });
+        setTimeout(() => {
+          msgs.forEach(m => m.remove());
+          container.scrollTop = 0;
+          chatIdx = 0;
+          setTimeout(runChatStep, 600);
+        }, 450);
+      }, 2500);
+      return;
+    }
+
+    const msg = allDialogue[chatIdx++];
+
     if (msg.type === 'bot') {
       typingEl.style.display = 'flex';
+      smoothScrollChat(container);
       setTimeout(() => {
         typingEl.style.display = 'none';
-        appendMsg(msg, container);
-        if (msgIndex < newMessages.length) {
-          setTimeout(() => addMessage(newMessages[msgIndex++]), 2000);
-        } else {
-          // Loop
-          setTimeout(resetChat, 3000);
-        }
-      }, 1500);
+        appendChatMsg(msg, container);
+        setTimeout(runChatStep, chatIdx < allDialogue.length ? 1800 : 2500);
+      }, 1400);
     } else {
       typingEl.style.display = 'none';
-      appendMsg(msg, container);
-      setTimeout(() => addMessage(newMessages[msgIndex++]), 1000);
+      appendChatMsg(msg, container);
+      setTimeout(runChatStep, 1000);
     }
   }
 
-  function appendMsg(msg, container) {
-    const div = document.createElement('div');
-    div.className = `msg ${msg.type}`;
-    div.innerHTML = `<div class="msg-bubble">${msg.text}</div><div class="msg-time">${msg.time}</div>`;
-    div.style.animation = 'msgIn 0.35s ease both';
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
-  }
-
-  function resetChat() {
-    const container = document.getElementById('chatMessages');
-    const allMsgs = container.querySelectorAll('.msg');
-    // Remove added messages (keep first 5)
-    for (let i = allMsgs.length - 1; i >= 5; i--) {
-      allMsgs[i].remove();
-    }
-    msgIndex = 0;
-    setTimeout(() => addMessage(newMessages[msgIndex++]), 2500);
-  }
-
-  // Start chat animation after 3s
-  setTimeout(() => addMessage(newMessages[msgIndex++]), 3500);
+  // Запуск после небольшой паузы
+  setTimeout(runChatStep, 1200);
 
   // ── Form submit → Google Sheets
   // ⚠️ ЗАМЕНИТЕ эту строку на URL вашего Apps Script после настройки:
