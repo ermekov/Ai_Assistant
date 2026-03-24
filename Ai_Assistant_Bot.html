@@ -233,7 +233,7 @@
     transform: translateY(-2px);
   }
 
-  /* CHAT PREVIEW */
+  /* CHAT PREVIEW — полностью фиксированный блок, ничего не двигается */
   .chat-preview {
     background: var(--surface2);
     border: 1px solid var(--border);
@@ -242,6 +242,13 @@
     position: relative;
     animation: fadeInRight 0.8s ease 0.2s both;
     box-shadow: 0 40px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
+    /* Жёсткая фиксированная высота — никогда не меняется */
+    height: 420px;
+    min-height: 420px;
+    max-height: 420px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 
   .chat-header {
@@ -251,6 +258,7 @@
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--border);
     margin-bottom: 1rem;
+    flex-shrink: 0; /* никогда не сжимается */
   }
 
   .chat-avatar {
@@ -267,26 +275,43 @@
   .chat-name { font-weight: 700; font-size: 0.95rem; }
   .chat-status { font-size: 0.75rem; color: var(--green); }
 
+  /* Область сообщений — растёт внутри, не выходит за рамки */
+  .chat-body {
+    flex: 1;
+    min-height: 0; /* критично для flex + overflow */
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
   .chat-messages {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    /* Фиксированная область — сообщения скроллятся внутри, не растягивают карточку */
-    height: 280px;
     overflow-y: auto;
     overflow-x: hidden;
-    position: relative;
-    /* Скрываем скроллбар — выглядит как телефон */
+    padding-bottom: 0.5rem;
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
   .chat-messages::-webkit-scrollbar { display: none; }
 
+  /* Индикатор печатания — фиксированная высота, всегда занимает место */
+  .chat-typing-wrap {
+    flex-shrink: 0;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    margin-top: 0.5rem;
+  }
+
   .msg {
     display: flex;
     gap: 0.5rem;
-    animation: msgIn 0.4s ease both;
     max-width: 85%;
+    flex-shrink: 0;
   }
 
   .msg.user { align-self: flex-end; flex-direction: row-reverse; }
@@ -315,7 +340,7 @@
   .typing-indicator {
     display: flex;
     gap: 4px;
-    padding: 0.75rem 1rem;
+    padding: 0.65rem 1rem;
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 16px;
@@ -1039,12 +1064,14 @@
             <div class="chat-status">● онлайн</div>
           </div>
         </div>
-        <div class="chat-messages" id="chatMessages"></div>
-        <div style="margin-top:0.75rem; flex-shrink:0;">
-          <div class="typing-indicator" id="typingIndicator" style="display:none;">
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
-            <div class="typing-dot"></div>
+        <div class="chat-body">
+          <div class="chat-messages" id="chatMessages"></div>
+          <div class="chat-typing-wrap">
+            <div class="typing-indicator" id="typingIndicator" style="display:none;">
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+              <div class="typing-dot"></div>
+            </div>
           </div>
         </div>
       </div>
